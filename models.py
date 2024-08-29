@@ -1,16 +1,7 @@
-import sqlalchemy as sa
-
-from sqlalchemy import create_engine
-
-from sqlalchemy import Column, Integer, String, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, create_engine
+from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
-
-# Set up the database engine and session
-engine = sa.create_engine('sqlite:///users.db', echo=False)
-Session = scoped_session(sessionmaker(bind=engine))
-Base = declarative_base()
+from base import Base, Session
 
 class User(Base):
     __tablename__ = 'users'
@@ -29,12 +20,33 @@ class User(Base):
     def check_password(self, secret):
         return check_password_hash(self.password, secret)
 
+class Table(Base):
+    __tablename__ = 'tables'
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    date = Column(String, nullable=False)
+    starred = Column(Boolean, default=False)
+    professions = Column(JSON, default=[])
+    shifts = relationship('Shift', backref='table', cascade="all, delete-orphan")
+    assignment = Column(JSON, default={})
+
+class Shift(Base):
+    __tablename__ = 'shifts'
+
+    id = Column(Integer, primary_key=True)
+    table_id = Column(Integer, ForeignKey('tables.id'), nullable=False)
+    profession = Column(String, nullable=False)
+    day = Column(String, nullable=False)
+    start_hour = Column(String, nullable=False)
+    end_hour = Column(String, nullable=False)
+    cost = Column(Integer, nullable=False)
+    id_list = Column(JSON, default=[])
+    color = Column(Boolean, default=False)
+
 # def reset_database():
 #     engine = create_engine('sqlite:///users.db')
 #     Base.metadata.drop_all(engine)  # Drop all tables
 #     Base.metadata.create_all(engine)  # Create new tables
 
 # reset_database()
-
-# Create tables
-Base.metadata.create_all(engine)
