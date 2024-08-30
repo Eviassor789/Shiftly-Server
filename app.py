@@ -74,7 +74,7 @@ def get_user_tables():
         table_ids = user.tablesArr
         
         # Fetch the tables from the database
-        tables = session.query(Table).filter(Table.name.in_(table_ids)).all()
+        tables = session.query(Table).filter(Table.id.in_(table_ids)).all()
         
         # Convert tables to a list of dictionaries
         tables_list = [{
@@ -146,11 +146,13 @@ def add_table():
             end_hour=shift_data['endHour'],
             cost=shift_data['cost'],
             id_list=shift_data.get('idList', []),
-            color=shift_data.get('color', "")
+            color=shift_data.get('color', False)
         )
         session.add(new_shift)
 
-    session.commit()  # Save all shifts to the database
+    user.tablesArr = user.tablesArr + [new_table.id]
+
+    session.commit()  # Save all shifts to the database, and update tablesArr
     session.close()
     
     return jsonify(msg="Table and shifts added successfully"), 201
