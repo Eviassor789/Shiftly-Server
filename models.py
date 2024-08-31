@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, JSON, ForeignKey, creat
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
 from base import Base, Session
+from sqlalchemy import Table as SQLAlchemyTable
 
 class User(Base):
     __tablename__ = 'users'
@@ -20,6 +21,7 @@ class User(Base):
     def check_password(self, secret):
         return check_password_hash(self.password, secret)
 
+
 class Table(Base):
     __tablename__ = 'tables'
 
@@ -28,8 +30,11 @@ class Table(Base):
     date = Column(String, nullable=False)
     starred = Column(Boolean, default=False)
     professions = Column(JSON, default=[])
-    shifts = relationship('Shift', backref='table', cascade="all, delete-orphan")
     assignment = Column(JSON, default={})
+    
+    shifts = relationship('Shift', backref='table', cascade="all, delete-orphan")
+    workers = relationship('Worker', backref='table', cascade="all, delete-orphan")
+
 
 class Shift(Base):
     __tablename__ = 'shifts'
@@ -41,8 +46,31 @@ class Shift(Base):
     start_hour = Column(String, nullable=False)
     end_hour = Column(String, nullable=False)
     cost = Column(Integer, nullable=False)
-    id_list = Column(JSON, default=[])
     color = Column(Boolean, default=False)
+    
+    # Relationship to link shifts to workers
+    workers = relationship('Worker', secondary='worker_shifts', 
+        back_populates='shifts'
+    )
+
+  
+class Worker(Base):
+    __tablename__ = 'workers'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    professions = Column(JSON, default=[])
+    days = Column(JSON, default=[])
+    hours_per_week = Column(Integer, nullable=False)
+    table_id = Column(Integer, ForeignKey('tables.id'), nullable=False)
+
+    shifts = relationship('Shift', secondary='worker_shifts', back_populates='workers')
+
+# Association table for many-to-many relationship between Worker and Shift
+worker_shifts = SQLAlchemyTable('worker_shifts', Base.metadata,
+    Column('worker_id', Integer, ForeignKey('workers.id'), primary_key=True),
+    Column('shift_id', Integer, ForeignKey('shifts.id'), primary_key=True)
+)
 
 # def reset_database():
 #     engine = create_engine('sqlite:///users.db')

@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from flask_cors import CORS, cross_origin
-from models import User, Table, Shift
+from models import User, Table, Shift, Worker
 from base import Session, create_tables
 
 app = Flask(__name__)
@@ -41,7 +41,6 @@ def fetch_user_from_db(username):
     session.close()  # Close session
     return user
 
-
 @app.route('/get_user_data', methods=['POST'])
 @jwt_required()
 def get_user_data():
@@ -56,7 +55,6 @@ def get_user_data():
         return jsonify(tablesArr=user.tablesArr)
     return jsonify(msg="User not found"), 404
 
-
 @app.route('/user_tables', methods=['GET'])
 @jwt_required()
 @cross_origin()
@@ -65,18 +63,13 @@ def get_user_tables():
     session = Session()
     
     try:
-        # Fetch the user from the database
         user = session.query(User).filter_by(username=current_user).first()
         if not user:
             return jsonify(msg="User not found"), 404
         
-        # Get the user's tables IDs
         table_ids = user.tablesArr
-        
-        # Fetch the tables from the database
         tables = session.query(Table).filter(Table.id.in_(table_ids)).all()
         
-        # Convert tables to a list of dictionaries
         tables_list = [{
             "id": table.id,
             "name": table.name,
@@ -90,7 +83,14 @@ def get_user_tables():
                 "start_hour": shift.start_hour,
                 "end_hour": shift.end_hour,
                 "cost": shift.cost,
-                "id_list": shift.id_list,
+                "workers": [{
+                    "id": worker.id,
+                    "name": worker.name,
+                    "professions": worker.professions,
+                    "days": worker.days,
+                    "hours_per_week": worker.hours_per_week,
+                    "table_id": worker.table_id
+                } for worker in shift.workers],  # Include worker details
                 "color": shift.color
             } for shift in table.shifts],
             "assignment": table.assignment
@@ -104,59 +104,147 @@ def get_user_tables():
     finally:
         session.close()
 
-# Function to add tables and shifts for a user
+
+@app.route('/table/<int:table_id>', methods=['GET'])
+@jwt_required()
+@cross_origin()
+def get_table_data(table_id):
+    current_user = get_jwt_identity()
+    session = Session()
+    
+    try:
+        user = session.query(User).filter_by(username=current_user).first()
+        if not user:
+            return jsonify(msg="User not found"), 404
+        
+        # Query the table from the database based on the table_id
+        table = session.query(Table).filter_by(id=table_id).first()
+
+        if not table:
+            return jsonify({'error': 'Table not found'}), 404
+        
+        table_data = {
+            "id": table.id,
+            "name": table.name,
+            "date": table.date,
+            "starred": table.starred,
+            "professions": table.professions,
+            "shifts": [{
+                "id": shift.id,
+                "profession": shift.profession,
+                "day": shift.day,
+                "start_hour": shift.start_hour,
+                "end_hour": shift.end_hour,
+                "cost": shift.cost,
+                "workers": [{
+                    "id": worker.id,
+                    "name": worker.name,
+                    "professions": worker.professions,
+                    "days": worker.days,
+                    "hours_per_week": worker.hours_per_week,
+                    "table_id": worker.table_id
+                } for worker in shift.workers],  # Include worker details
+                "color": shift.color
+            } for shift in table.shifts],
+            "assignment": table.assignment
+        }
+        
+        return jsonify(table_data)
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
+    finally:
+        session.close()
+
+
+# Function to add tables, shifts, and workers for a user
 @app.route('/add_table', methods=['POST'])
 @jwt_required()
 @cross_origin()
 def add_table():
-    current_user = get_jwt_identity()
-    session = Session()
-    
-    user = session.query(User).filter_by(username=current_user).first()
-    if not user:
-        session.close()
-        return jsonify(msg="User not found"), 404
+    try: 
+        current_user = get_jwt_identity()
+        session = Session()
+        
+        # Fetch the current user from the database
+        user = session.query(User).filter_by(username=current_user).first()
+        if not user:
+            session.close()
+            return jsonify(msg="User not found"), 404
 
-    data = request.json
-    table_name = data.get('name')
-    table_date = data.get('date')
-    starred = data.get('starred', False)
-    professions = data.get('professions', [])
-    shifts_data = data.get('shifts', [])
-    assignment = data.get('assignment', {})
+        data = request.json
+        table_name = data.get('name')
+        table_date = data.get('date')
+        starred = data.get('starred', False)
+        professions = data.get('professions', [])
+        shifts_data = data.get('shifts', [])
+        assignment = data.get('assignment', {})
+        workers_data = data.get('workers', [])
 
-    new_table = Table(
-        name=table_name,
-        date=table_date,
-        starred=starred,
-        professions=professions,
-        assignment=assignment
-    )
-    
-    session.add(new_table)
-    session.commit()  # Save the table first to generate an ID
-
-    # Add shifts associated with this table
-    for shift_data in shifts_data:
-        new_shift = Shift(
-            table_id=new_table.id,  # Associate the shift with the table's ID
-            profession=shift_data['profession'],
-            day=shift_data['day'],
-            start_hour=shift_data['startHour'],
-            end_hour=shift_data['endHour'],
-            cost=shift_data['cost'],
-            id_list=shift_data.get('idList', []),
-            color=shift_data.get('color', False)
+        # Create a new table entry
+        new_table = Table(
+            name=table_name,
+            date=table_date,
+            starred=starred,
+            professions=professions,
+            assignment=assignment
         )
-        session.add(new_shift)
+        
+        session.add(new_table)
+        session.commit()  # Save the table first to generate an ID
 
-    user.tablesArr = user.tablesArr + [new_table.id]
+        # Add workers to the database
+        worker_map = {}  # This will map worker names to their IDs
+        for worker_data in workers_data:
+            new_worker = Worker(
+                name=worker_data['name'],
+                professions=worker_data['professions'],
+                days=worker_data['days'],
+                hours_per_week=worker_data['hours_per_week'],
+                table_id=new_table.id  # Link the worker to the new table
+            )
+            session.add(new_worker)
+            session.flush()  # Flush to get the worker's ID without committing
+            worker_map[new_worker.name] = new_worker.id  # Map worker name to ID
+        
+        session.commit()  # Save all workers to the database
 
-    session.commit()  # Save all shifts to the database, and update tablesArr
-    session.close()
+        # Add shifts and associate workers from assignment
+        for shift_data in shifts_data:
+            new_shift = Shift(
+                table_id=new_table.id,  # Associate the shift with the table's ID
+                profession=shift_data['profession'],
+                day=shift_data['day'],
+                start_hour=shift_data['startHour'],
+                end_hour=shift_data['endHour'],
+                cost=shift_data['cost'],
+                color=shift_data.get('color', False)
+            )
+            session.add(new_shift)
+            session.flush()  # Flush to get the shift's ID without committing
+            
+            # Link workers to the shift using the assignment data
+            shift_id = new_shift.id
+            if str(shift_id) in assignment:
+                assigned_worker_ids = assignment[str(shift_id)]
+                for worker_id in assigned_worker_ids:
+                    worker = session.query(Worker).filter_by(id=worker_id).first()
+                    if worker:
+                        new_shift.workers.append(worker)
+            
+            session.commit()  # Save each shift and associated workers
+
+        # Update the user's tables array with the new table ID
+        user.tablesArr = user.tablesArr + [new_table.id]  
+        session.commit()  # Save the updated user and table relationships
+
+        session.close()
+        return jsonify(msg="Table, shifts, and workers added successfully"), 201
     
-    return jsonify(msg="Table and shifts added successfully"), 201
-
+    except Exception as e:
+        return jsonify(msg=str(e)), 500
+        
 
 @app.route('/update_user_tables', methods=['POST'])
 @jwt_required()
@@ -176,6 +264,64 @@ def update_user_tables():
     
     session.close()
     return jsonify(msg="User not found"), 404
+
+@app.route('/toggle_star/<int:table_id>', methods=['POST'])
+@jwt_required()
+@cross_origin()
+def toggle_star(table_id):
+    current_user = get_jwt_identity()
+    session = Session()
+    data = request.json
+    # table_id = data.get('table_id')
+    
+    try:
+        # Fetch the table to be toggled
+        table = session.query(Table).filter_by(id=table_id).first()
+        if not table:
+            return jsonify(msg="Table not found"), 404
+
+        # Toggle the star value
+        table.starred = not table.starred
+        session.commit()
+        
+        return jsonify(msg="Star status toggled successfully", starred=table.starred), 200
+    
+    except Exception as e:
+        return jsonify(msg=str(e)), 500
+    
+    finally:
+        session.close()
+
+@app.route('/delete_table/<int:table_id>', methods=['DELETE'])
+@jwt_required()
+@cross_origin()
+def delete_table(table_id):
+    current_user = get_jwt_identity()
+    session = Session()
+    
+    user = session.query(User).filter_by(username=current_user).first()
+    if not user:
+        session.close()
+        return jsonify(msg="User not found"), 404    
+    
+    try:
+        # Fetch the table to be deleted
+        table = session.query(Table).filter_by(id=table_id).first()
+        if not table:
+            return jsonify(msg="Table not found"), 404
+
+        # Remove the table and associated shifts
+        session.delete(table)
+        session.commit()
+
+        return jsonify(msg="Table and associated data deleted successfully"), 200
+    
+    except Exception as e:
+        return jsonify(msg=str(e)), 500
+    
+    finally:
+        session.close()
+
 
 
 @app.route('/login', methods=['POST'])
