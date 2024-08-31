@@ -216,8 +216,8 @@ def add_table():
                 table_id=new_table.id,  # Associate the shift with the table's ID
                 profession=shift_data['profession'],
                 day=shift_data['day'],
-                start_hour=shift_data['startHour'],
-                end_hour=shift_data['endHour'],
+                start_hour=shift_data['start_hour'],
+                end_hour=shift_data['end_hour'],
                 cost=shift_data['cost'],
                 color=shift_data.get('color', False)
             )
