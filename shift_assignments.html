@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Shift Assignments</title>
+</head>
+<body>
+    <h1>Shift Assignments</h1>
+    {% for worker, shifts in workers.items() %}
+        <h2>{{ worker }}</h2>
+        <ul>
+            {% for shift in shifts %}
+                <li>{{ shift }}</li>
+            {% endfor %}
+        </ul>
+    {% endfor %}
+</body>
+</html>
