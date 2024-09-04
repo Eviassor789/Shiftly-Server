@@ -464,6 +464,25 @@ def delete_table(table_id):
         session.close()
 
 
+@app.route('/update-settings', methods=['POST'])
+@jwt_required()  # Ensure the user is logged in
+def update_settings():
+    data = request.json
+    username = data.get('username')
+    settings = data.get('settings')
+    
+    session = Session()
+    user = session.query(User).filter_by(username=username).first()
+    
+    if user:
+        user.settings = settings
+        session.commit()
+        session.close()
+        return jsonify(msg="User's settings updated successfully")
+    
+    session.close()
+    return jsonify(msg="User not found"), 404
+
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username', None)
@@ -541,7 +560,7 @@ def login_google():
     
     if not user:
         # Register a new user
-        color_list = ["blue", "orange", "yellow", "pink", "brown", "white", "green"]
+        color_list = ["#f5f3f6", "#178f36", "#ff577a", "#f5af69", "#dfe685", "#81d6c9", "#7fb8e3"]
         user_color = random.choice(color_list)
         user = User(
             username=user_name,
