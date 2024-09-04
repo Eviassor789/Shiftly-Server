@@ -1,11 +1,19 @@
-from flask import Flask, jsonify, request
+import random
+from flask import Flask, jsonify, request, redirect, url_for, session
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from werkzeug.security import generate_password_hash
 from flask_cors import CORS, cross_origin
 from models import User, Table, Shift, Worker
 from base import Session, create_tables
 
+from google.oauth2 import id_token
+from google_auth_oauthlib.flow import Flow
+from google.auth.transport import requests
+import os
+
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
+app.secret_key = 'your-secret-key'
 jwt = JWTManager(app)
 
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -397,8 +405,6 @@ def update_assignment():
     finally:
         session.close()
 
-        
-
 
 @app.route('/toggle_star/<int:table_id>', methods=['POST'])
 @jwt_required()
@@ -458,7 +464,6 @@ def delete_table(table_id):
         session.close()
 
 
-
 @app.route('/login', methods=['POST'])
 def login():
     username = request.json.get('username', None)
@@ -471,6 +476,124 @@ def login():
         return jsonify(access_token=access_token)
     
     return jsonify(msg="Invalid credentials"), 401
+
+@app.route('/register', methods=['POST'])
+@cross_origin()
+def register():
+    session = Session()
+    try:
+        data = request.json
+        username = data.get('username')
+        password = data.get('password')
+
+        if not username or not password:
+            return jsonify(msg="Username and password are required"), 400
+
+        existing_user = session.query(User).filter_by(username=username).first()
+        if existing_user:
+            return jsonify(msg="Username already taken"), 409
+
+        # Generate a random color for the user
+        color_list = ["blue", "orange", "yellow", "pink", "brown", "white", "purple", "green"]
+        user_color = random.choice(color_list)
+
+        # Hash the password before storing it
+        hashed_password = generate_password_hash(password)
+
+        # Create a new user
+        new_user = User(
+            username=username,
+            password=hashed_password,
+            color=user_color,
+            tablesArr=[],
+            picture="",
+            settings=[False, False]
+        )
+
+        session.add(new_user)
+        session.commit()
+
+        # Optionally, create a JWT token to log in the user immediately after registration
+        access_token = create_access_token(identity=username)
+
+        return jsonify(msg="User registered successfully", token=access_token), 201
+
+    except Exception as e:
+        session.rollback()
+        return jsonify(msg=str(e)), 500
+
+    finally:
+        session.close()
+
+
+@app.route('/login/google', methods=['POST'])
+def login_google():
+    data = request.json
+    user_google_id = data.get("sub")
+    user_email = data.get("email")
+    user_name = data.get("name")
+    user_picture = data.get("picture")
+
+    session = Session()
+    user = session.query(User).filter_by(email=user_email).first()
+    
+    hashed_password = generate_password_hash(user_google_id)
+    
+    if not user:
+        # Register a new user
+        color_list = ["blue", "orange", "yellow", "pink", "brown", "white", "green"]
+        user_color = random.choice(color_list)
+        user = User(
+            username=user_name,
+            password=hashed_password,
+            email=user_email,
+            color=user_color,
+            tablesArr=[],
+            picture=user_picture,
+            settings=[False, False],
+            google_id=user_google_id,
+        )
+        session.add(user)
+        session.commit()
+
+    # Log in the user by creating a JWT before closing the session
+    access_token = create_access_token(identity=user.username)
+
+    session.close()  # Close session after all operations are complete
+
+    return jsonify(msg="Logged in with Google", token=access_token), 200
+
+
+
+@app.route('/get_current_user', methods=['GET'])
+@jwt_required()
+@cross_origin()
+def get_current_user():
+    session = Session()
+    try:
+        current_user = get_jwt_identity()
+        
+        # Fetch the user from the database
+        user = session.query(User).filter_by(username=current_user).first()
+        
+        if not user:
+            return jsonify(msg="User not found"), 404
+        
+        # Prepare the user data to return
+        user_data = {
+            'username': user.username,
+            'color': user.color,
+            'tablesArr': user.tablesArr,
+            'settings': user.settings
+        }
+        
+        return jsonify(user_data=user_data), 200
+
+    except Exception as e:
+        return jsonify(msg=str(e)), 500
+
+    finally:
+        session.close()
 
 @app.route('/protected', methods=['GET'])
 @jwt_required()

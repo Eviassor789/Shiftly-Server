@@ -14,7 +14,9 @@ class User(Base):
     picture = Column(String, default="")
     settings = Column(JSON, default=[False, True])
     color = Column(String, default="#178f36")
-
+    email = Column(String, nullable=True, unique=True)
+    google_id = Column(String, nullable=True, unique=True)
+    
     def set_password(self, secret):
         self.password = generate_password_hash(secret)
 
