@@ -123,6 +123,8 @@ def get_table_data(table_id):
         if not table:
             return jsonify({'error': 'Table not found'}), 404
         
+        all_workers = session.query(Worker).filter_by(table_id=table_id).all()
+        
         table_data = {
             "id": table.id,
             "name": table.name,
@@ -146,7 +148,15 @@ def get_table_data(table_id):
                 } for worker in shift.workers],  # Include worker details
                 "color": shift.color
             } for shift in table.shifts],
-            "assignment": table.assignment
+            "assignment": table.assignment,
+            "all_workers": [{
+                    "id": worker.id,
+                    "name": worker.name,
+                    "professions": worker.professions,
+                    "days": worker.days,
+                    "hours_per_week": worker.hours_per_week,
+                    "table_id": worker.table_id
+                } for worker in all_workers],
         }
         
         return jsonify(table_data)
@@ -157,6 +167,54 @@ def get_table_data(table_id):
     finally:
         session.close()
 
+
+@app.route('/table/<int:table_id>/workers', methods=['GET'])
+@jwt_required()
+@cross_origin()
+def get_table_workers(table_id):
+    current_user = get_jwt_identity()
+    session = Session()
+
+    try:
+        user = session.query(User).filter_by(username=current_user).first()
+        if not user:
+            return jsonify(msg="User not found"), 404
+
+        # Fetch the table
+        table = session.query(Table).filter_by(id=table_id).first()
+        if not table:
+            return jsonify({'error': 'Table not found'}), 404
+
+        # Fetch all shifts for the table
+        shifts = session.query(Shift).filter_by(table_id=table_id).all()
+
+        
+        # Collect all workers linked to these shifts
+        # workers_set = set()
+        # for shift in shifts:
+        #     for worker in shift.workers:
+        #         workers_set.add(worker)
+        
+        workers_set = session.query(Worker).filter_by(table_id=table_id).all()
+
+        # Convert the set of workers to a list and prepare the response data
+        workers_list = [{
+            "id": worker.id,
+            "name": worker.name,
+            "professions": worker.professions,
+            "days": worker.days,
+            "shifts": worker.shifts,
+            "relevant_shifts_id": worker.relevant_shifts_id,
+            "hours_per_week": worker.hours_per_week,
+        } for worker in workers_set]
+
+        return jsonify(workers_list), 200
+
+    except Exception as e:
+        return jsonify(msg=str(e)), 500
+
+    finally:
+        session.close()
 
 # Function to add tables, shifts, and workers for a user
 @app.route('/add_table', methods=['POST'])
@@ -265,6 +323,83 @@ def update_user_tables():
     session.close()
     return jsonify(msg="User not found"), 404
 
+@app.route('/update_assignment', methods=['POST'])
+@jwt_required()
+@cross_origin()
+def update_assignment():
+    current_user = get_jwt_identity()
+    session = Session()
+    
+    try:
+        user = session.query(User).filter_by(username=current_user).first()
+        if not user:
+            return jsonify(msg="User not found"), 404
+
+        # Extract the data from the request
+        data = request.json
+        tableId = data.get('tableId')
+        new_assignment = data.get('assignment')
+        new_shifts_data = data.get('shifts', [])
+
+        if not tableId or not new_assignment:
+            return jsonify(msg="Invalid data"), 400
+
+        # Find the table with the provided tableId
+        table = session.query(Table).filter_by(id=tableId).first()
+
+        if not table:
+            return jsonify(msg="Table not found"), 404
+
+        # Update the assignment field
+        table.assignment = new_assignment
+
+        # Update existing shifts and workers associated with the table
+        existing_shifts = session.query(Shift).filter_by(table_id=table.id).all()
+        existing_workers = session.query(Worker).filter_by(table_id=table.id).all()
+
+        # Clear existing worker-shift relationships
+        for shift in existing_shifts:
+            shift.workers.clear()
+
+        # Update shifts and associate workers from the new assignment
+        worker_map = {worker.id: worker for worker in existing_workers}
+
+        for shift_data in new_shifts_data:
+            shift = session.query(Shift).filter_by(id=shift_data['id'], table_id=table.id).first()
+
+            if shift:
+                # Update shift details if needed
+                shift.profession = shift_data['profession']
+                shift.day = shift_data['day']
+                shift.start_hour = shift_data['start_hour']
+                shift.end_hour = shift_data['end_hour']
+                shift.cost = shift_data['cost']
+                shift.color = shift_data.get('color', shift.color)
+
+                # Associate workers based on the new assignment
+                shift_id = shift.id
+                if str(shift_id) in new_assignment:
+                    assigned_worker_ids = new_assignment[str(shift_id)]
+                    for worker_id in assigned_worker_ids:
+                        worker = worker_map.get(worker_id)
+                        if worker:
+                            shift.workers.append(worker)
+                session.add(shift)
+        
+        session.commit()
+
+        return jsonify(msg="Assignment, shifts, and workers updated successfully"), 200
+
+    except Exception as e:
+        session.rollback()
+        return jsonify(msg=str(e)), 500
+
+    finally:
+        session.close()
+
+        
+
+
 @app.route('/toggle_star/<int:table_id>', methods=['POST'])
 @jwt_required()
 @cross_origin()
@@ -348,5 +483,7 @@ def protected():
         return jsonify(current_user=current_user)
     return jsonify(msg="User not found"), 404
 
+        
+        
 if __name__ == '__main__':
     app.run()

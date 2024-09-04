@@ -46,7 +46,7 @@ class Shift(Base):
     start_hour = Column(String, nullable=False)
     end_hour = Column(String, nullable=False)
     cost = Column(Integer, nullable=False)
-    color = Column(Boolean, default=False)
+    color = Column(String, default=False)
     
     # Relationship to link shifts to workers
     workers = relationship('Worker', secondary='worker_shifts', 
