@@ -54,7 +54,7 @@ for profession in professions:
 workers_map = {}
 for i in range(num_workers):
     worker_id = i
-    name = f"_{worker_id}"
+    name = f"Worker_{chr(ord('A') + worker_id)}"
     professions_sample = random.sample(professions, k=random.randint(2, 4))
     days_sample = random.sample(days, k=random.randint(4, 6))
     hours_per_week = random.randint(5, 20)
@@ -94,16 +94,16 @@ workers_df = pd.DataFrame([
 ], columns=['ID', 'Name', 'Profession1', 'Profession2', 'Profession3', 'Hours per Week', 'Days'])
 
 # Save to Excel files in the current working directory
-shifts_df.to_excel('shifts.xlsx', index=False)
-requirements_df.to_excel('requirements.xlsx', index=False)
-workers_df.to_excel('workers.xlsx', index=False)
+shifts_df.to_excel('shifts.xlsx', index=False, header=False)
+requirements_df.to_excel('requirements.xlsx', index=False, header=False)
+workers_df.to_excel('workers.xlsx', index=False, header=False)
 
 
 shifts_df.head(), requirements_df.head(), workers_df.head()
 
 
-# Output
-print("Shifts List:", shifts_list)
-print("Requirements List:", requirements_list)
-print("Workers Map:", workers_map)
+# # Output
+# print("Shifts List:", shifts_list)
+# print("Requirements List:", requirements_list)
+# print("Workers Map:", workers_map)
 

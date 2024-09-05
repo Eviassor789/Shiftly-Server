@@ -3,7 +3,8 @@ from flask import Flask, jsonify, request, redirect, url_for, session
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash
 from flask_cors import CORS, cross_origin
-from models import User, Table, Shift, Worker
+from models import User, Table, Shift, Worker, Requirement
+from algorithm.ILP import get_assignment, json_print
 from base import Session, create_tables
 
 from google.oauth2 import id_token
@@ -302,7 +303,7 @@ def add_table():
             session.commit()  # Save each shift and associated workers
 
         # Update the user's tables array with the new table ID
-        user.tablesArr = user.tablesArr + [new_table.id]  
+        user.tablesArr = user.tablesArr + [new_table.id]
         session.commit()  # Save the updated user and table relationships
 
         session.close()
@@ -311,6 +312,185 @@ def add_table():
     except Exception as e:
         return jsonify(msg=str(e)), 500
         
+@app.route('/add_by_parsed_rows', methods=['POST'])
+@jwt_required()
+@cross_origin()
+def add_by_parsed_rows():
+    try:
+        current_user = get_jwt_identity()
+        session = Session()
+
+        # Fetch the current user from the database
+        user = session.query(User).filter_by(username=current_user).first()
+        if not user:
+            session.close()
+            return jsonify(msg="User not found"), 404
+
+        data = request.json
+
+        # Parsed rows from workers.xlsx, requirements.xlsx, shifts.xlsx
+        workers_data = data.get('workersData', [])
+        requirements_data = data.get('requirementsData', [])
+        shifts_data = data.get('shiftsData', [])
+
+        # Create a new table
+        table_name = data.get('table_name', 'New Table')
+        table_date = data.get('table_date', '2024-01-01')  # Default date
+        new_table = Table(
+            name=table_name,
+            date=table_date,
+            starred=False,
+            professions=[],
+            assignment={}
+        )
+        session.add(new_table)
+        session.commit()  # Commit to get the table ID
+
+        # Step 1: Insert workers into the database
+        worker_map = {}
+        for row in workers_data:
+            worker_id, name, *professions, hours_per_week, days_str = row
+            days = [int(day) for day in days_str.split(',')]  # Parse days
+            new_worker = Worker(
+                name=name,
+                professions=professions,  # List of professions
+                days=days,  # List of working days
+                hours_per_week=hours_per_week,
+                table_id=new_table.id  # Link worker to the current table
+            )
+            session.add(new_worker)
+            session.flush()  # Flush to get the worker's ID
+            worker_map[name] = new_worker.id  # Map worker's original ID to the database ID
+
+        session.commit()  # Commit all workers to the database
+
+        # Step 2: Insert shifts into the database
+        shift_map = {}
+        for row in shifts_data:
+            profession, day, start_hour, end_hour, cost = row
+            new_shift = Shift(
+                table_id=new_table.id,
+                profession=profession,
+                day=day,  # Day in the week (1-7)
+                start_hour=start_hour,
+                end_hour=end_hour,
+                cost=cost,
+                color=None  # You can set colors based on your project logic
+            )
+            session.add(new_shift)
+            session.flush()  # Flush to get the shift ID
+            shift_map[f"{profession}-{day}"] = new_shift.id  # Map profession and day to shift ID
+
+        session.commit()  # Commit all shifts to the database
+
+        # Step 3: Insert requirements into the database
+        for row in requirements_data:
+            day, profession, start_hour, end_hour, num_employees = row
+            new_requirement = Requirement(
+                profession=profession,
+                day=day,
+                start_hour=start_hour,
+                end_hour=end_hour,
+                number_of_employees_required=num_employees,
+                table_id=new_table.id  # Link requirement to the table
+            )
+            session.add(new_requirement)
+
+        session.commit()  # Commit all requirements to the database
+
+        session.commit()
+        
+        shifts = session.query(Shift).filter_by(table_id=new_table.id).all()
+        workers = session.query(Worker).filter_by(table_id=new_table.id).all()
+        requirementsArr = session.query(Requirement).filter_by(table_id=new_table.id).all()
+        
+        requirementsList = []
+        shiftsList = []
+        workersList = {}
+        
+        for requirement in requirementsArr:
+            # Extract attributes from each Requirement object
+            req_id = requirement.id
+            profession = requirement.profession
+            day = requirement.day
+            start_hour = requirement.start_hour
+            end_hour = requirement.end_hour
+            number = requirement.number_of_employees_required
+            
+            # Create a dictionary with the required format
+            requirement_dict = {
+                'id': req_id,
+                'profession': profession,
+                'day': day,
+                'start_hour': start_hour,
+                'end_hour': end_hour,
+                'number': number
+            }
+        
+            # Add the dictionary to the processed_list
+            requirementsList.append(requirement_dict)
+        
+        for shift in shifts:
+            # Extract attributes from each Shift object
+            shift_id = shift.id
+            profession = shift.profession
+            day = shift.day
+            start_hour = shift.start_hour
+            end_hour = shift.end_hour
+            cost = shift.cost
+            
+            # Create a dictionary with the required format
+            shift_dict = {
+                'id': shift_id,
+                'profession': profession,
+                'day': day,
+                'start_hour': start_hour,
+                'end_hour': end_hour,
+                'cost': cost
+            }
+            
+            # Add the dictionary to the processed_list
+            shiftsList.append(shift_dict)
+        
+        for worker in workers:
+            # Extract attributes from each Worker object
+            worker_id = worker.id
+            name = worker.name
+            professions = worker.professions  # Assuming this is a list of professions
+            days = worker.days  # Assuming this is a list of days
+            relevant_shifts_id = []
+            hours_per_week = worker.hours_per_week
+            
+            # Create a dictionary with the required format
+            worker_dict = {
+                'id': worker_id,
+                'name': name,
+                'professions': professions,
+                'days': days,
+                'relevant_shifts_id': relevant_shifts_id,
+                'hours_per_week': hours_per_week
+            }
+            
+            # Add the dictionary to the processed_dict with worker_id as the key
+            workersList[worker_id] = worker_dict
+            
+        
+        print("Shifts:", shiftsList)
+        print("Workers:", workersList)
+        print("requirementsList:", requirementsList)
+        
+        idle_constrain = user.settings[0]
+        contracts_constrain = user.settings[1]
+        
+        solution = get_assignment(shiftsList, workersList, requirementsList, idle_constrain, contracts_constrain)
+        assignment = json_print(solution)
+
+        session.close()
+        return jsonify(assignment), 201
+
+    except Exception as e:
+        return jsonify(msg=str(e)), 500
+
 
 @app.route('/update_user_tables', methods=['POST'])
 @jwt_required()
