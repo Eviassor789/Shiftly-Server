@@ -349,7 +349,7 @@ def update_assignment():
         new_assignment = data.get('assignment')
         new_shifts_data = data.get('shifts', [])
 
-        if not tableId or not new_assignment:
+        if not tableId:
             return jsonify(msg="Invalid data"), 400
 
         # Find the table with the provided tableId
