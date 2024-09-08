@@ -412,7 +412,7 @@ def add_by_parsed_rows():
             # Extract attributes from each Requirement object
             req_id = requirement.id
             profession = requirement.profession
-            day = requirement.day
+            day = str(requirement.day)
             start_hour = requirement.start_hour
             end_hour = requirement.end_hour
             number = requirement.number_of_employees_required
@@ -434,7 +434,7 @@ def add_by_parsed_rows():
             # Extract attributes from each Shift object
             shift_id = shift.id
             profession = shift.profession
-            day = shift.day
+            day = str(shift.day)
             start_hour = shift.start_hour
             end_hour = shift.end_hour
             cost = shift.cost
@@ -460,6 +460,8 @@ def add_by_parsed_rows():
             days = worker.days  # Assuming this is a list of days
             relevant_shifts_id = []
             hours_per_week = worker.hours_per_week
+            
+            days = [str(day) for day in days] #turn the days into strings
             
             # Create a dictionary with the required format
             worker_dict = {
