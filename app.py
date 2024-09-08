@@ -475,9 +475,9 @@ def add_by_parsed_rows():
             workersList[worker_id] = worker_dict
             
         
-        print("Shifts:", shiftsList)
-        print("Workers:", workersList)
-        print("requirementsList:", requirementsList)
+        # print("Shifts:", shiftsList)
+        # print("Workers:", workersList)
+        # print("requirementsList:", requirementsList)
         
         idle_constrain = user.settings[0]
         contracts_constrain = user.settings[1]
@@ -808,4 +808,4 @@ def protected():
         
         
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)

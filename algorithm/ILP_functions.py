@@ -16,10 +16,10 @@ def is_overlap(shift1, shift2):
     start2 = time_to_minutes(shift2['start_hour'])
     end2 = time_to_minutes(shift2['end_hour'])
     return (
-            ((start2 <= start1 <= end2) or
-             (start2 <= end1 <= end2) or
-             (start1 <= start2 <= end1) or
-             (start1 <= end2 <= end1)) and
+            ((start2 <= start1 < end2) or
+             (start2 < end1 <= end2) or
+             (start1 <= start2 < end1) or
+             (start1 < end2 <= end1)) and
             shift1['day'] == shift2['day']
     )
 
@@ -74,7 +74,8 @@ def is_hour_in_range(hour, start_hour, end_hour):
 def get_relevant_requirements_for_shift(shift, requirements):
     requirements_array = []
     for requirement in requirements:
-        if requirement['day'] == shift['day'] \
+        if str(requirement['day']
+        ) == str(shift['day']) \
                 and requirement['profession'] == shift['profession'] \
                 and is_hour_in_range(requirement['hour'], shift['start_hour'], shift['end_hour']):
             requirements_array.append(requirement)
@@ -120,8 +121,8 @@ def initialize(shifts, workers, requirements):
         worker_possible_shifts_map[worker_id] = worker_info['relevant_shifts_id']
 
     # initialize the shifts_to_requirements_map
-    for shift_id, shift_info in shifts.items():
-        shifts_to_requirements_map[shift_id] = get_relevant_requirements_for_shift(shift_info, requirements)
+    for shift in shifts:
+        shifts_to_requirements_map[shift['id']] = get_relevant_requirements_for_shift(shift, requirements)
 
     # initialize the requirements_num_map
     for requirement in requirements:
@@ -201,7 +202,7 @@ def get_fitness_with_more_info(solution, shifts, workers, requirements):
     # fitness -= satisfied_contracts * contracts_weight
     # fitness -= satisfied_requirements * requirements_weight
 
-    return fitness, cost, satisfied_contracts, satisfied_requirements, idle_workers, total_requirements_num
+    return cost, satisfied_contracts, satisfied_requirements, idle_workers, total_requirements_num
 
 
 def find_solution(shifts, workers, requirements, idle_constrain, contracts_constrain, state):
@@ -212,8 +213,8 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
     requirements_weight = 0
 
 
-    for shift_id, shift_info in shifts.items():
-        shifts_to_requirements_map[shift_id] = get_relevant_requirements_for_shift(shift_info, requirements)
+    for shift in shifts:
+        shifts_to_requirements_map[shift['id']] = get_relevant_requirements_for_shift(shift, requirements)
 
     # ILP Model
     model = pulp.LpProblem("Optimize_Scheduling", pulp.LpMaximize)
@@ -270,7 +271,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
     if contracts_constrain:
         for w in workers:
             total_worked_hours = sum(
-                assignments[(w, s['id'])] * (time_to_minutes(s['endHour']) - time_to_minutes(s['startHour'])) / 60
+                assignments[(w, s['id'])] * (time_to_minutes(s['end_hour']) - time_to_minutes(s['start_hour'])) / 60
                 for s in shifts)
             model += total_worked_hours >= workers[w]['hours_per_week']
 
@@ -388,7 +389,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
         idle_workers_weight = 10000
         contracts_weight = 1000000
         requirements_weight = 0
-        cost_weight = 1000
+        cost_weight = 1
 
         if idle_constrain:
             model += (

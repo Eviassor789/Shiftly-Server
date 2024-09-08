@@ -89,9 +89,9 @@ worker_shifts = SQLAlchemyTable('worker_shifts', Base.metadata,
 )
 
 
-def reset_database():
-    engine = create_engine('sqlite:///users.db')
-    Base.metadata.drop_all(engine)  # Drop all tables
-    Base.metadata.create_all(engine)  # Create new tables
+# def reset_database():
+#     engine = create_engine('sqlite:///users.db')
+#     Base.metadata.drop_all(engine)  # Drop all tables
+#     Base.metadata.create_all(engine)  # Create new tables
 
-reset_database()
+# reset_database()
