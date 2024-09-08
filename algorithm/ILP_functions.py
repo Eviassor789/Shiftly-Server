@@ -120,7 +120,7 @@ def initialize(shifts, workers, requirements):
         worker_possible_shifts_map[worker_id] = worker_info['relevant_shifts_id']
 
     # initialize the shifts_to_requirements_map
-    for shift_id, shift_info in relevant_shifts.items():
+    for shift_id, shift_info in shifts.items():
         shifts_to_requirements_map[shift_id] = get_relevant_requirements_for_shift(shift_info, requirements)
 
     # initialize the requirements_num_map
@@ -210,6 +210,10 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
     contracts_weight = 0
     cost_weight = 0
     requirements_weight = 0
+
+
+    for shift_id, shift_info in shifts.items():
+        shifts_to_requirements_map[shift_id] = get_relevant_requirements_for_shift(shift_info, requirements)
 
     # ILP Model
     model = pulp.LpProblem("Optimize_Scheduling", pulp.LpMaximize)
@@ -304,7 +308,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
 
         if contracts_constrain:
             model += (requirements_weight * pulp.lpSum(
-                assignments[(workers[w]['id'], s['id'])] for w in workers for s in shifts)
+                assignments[(workers[w]['id'], s['id'])]*len(shifts_to_requirements_map[s['id']]) for w in workers for s in shifts)
                       - cost_weight * total_cost
                       ), "Optimize Objectives"
 
@@ -312,14 +316,14 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
             model += (
                              contracts_weight * satisfied_contracts
                              + requirements_weight * pulp.lpSum(
-                         assignments[(workers[w]['id'], s['id'])] for w in workers for s in shifts)
+                         assignments[(workers[w]['id'], s['id'])]*len(shifts_to_requirements_map[s['id']]) for w in workers for s in shifts)
                              - cost_weight * total_cost
                      ), "Optimize Objectives"
         else:
             model += (
                              contracts_weight * satisfied_contracts
                              + requirements_weight * pulp.lpSum(
-                         assignments[(workers[w]['id'], s['id'])] for w in workers for s in shifts)
+                         assignments[(workers[w]['id'], s['id'])]*len(shifts_to_requirements_map[s['id']]) for w in workers for s in shifts)
                              - cost_weight * total_cost
                              - idle_workers_weight * idle_workers
                      ), "Optimize Objectives"
@@ -358,7 +362,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
         if idle_constrain:
             model += (
                              requirements_weight * pulp.lpSum(
-                         assignments[(workers[w]['id'], s['id'])] for w in workers for s in shifts)
+                         assignments[(workers[w]['id'], s['id'])]*len(shifts_to_requirements_map[s['id']]) for w in workers for s in shifts)
                              - cost_weight * total_cost
                      ), "Optimize Objectives"
 
@@ -366,7 +370,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
         elif contracts_constrain:
             model += (
                              requirements_weight * pulp.lpSum(
-                         assignments[(workers[w]['id'], s['id'])] for w in workers for s in shifts)
+                         assignments[(workers[w]['id'], s['id'])]*len(shifts_to_requirements_map[s['id']]) for w in workers for s in shifts)
                              - cost_weight * total_cost
                              - idle_workers_weight * idle_workers
                      ), "Optimize Objectives"
@@ -375,7 +379,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
             model += (
                              contracts_weight * satisfied_contracts
                              + requirements_weight * pulp.lpSum(
-                         assignments[(workers[w]['id'], s['id'])] for w in workers for s in shifts)
+                         assignments[(workers[w]['id'], s['id'])]*len(shifts_to_requirements_map[s['id']]) for w in workers for s in shifts)
                              - cost_weight * total_cost
                              - idle_workers_weight * idle_workers
                      ), "Optimize Objectives"
