@@ -36,6 +36,7 @@ class Table(Base):
     
     shifts = relationship('Shift', backref='table', cascade="all, delete-orphan")
     workers = relationship('Worker', backref='table', cascade="all, delete-orphan")
+    requirements = relationship('Requirement', backref='table', cascade="all, delete-orphan")
 
 
 class Shift(Base):
@@ -51,11 +52,9 @@ class Shift(Base):
     color = Column(String, default=False)
     
     # Relationship to link shifts to workers
-    workers = relationship('Worker', secondary='worker_shifts', 
-        back_populates='shifts'
-    )
+    workers = relationship('Worker', secondary='worker_shifts', back_populates='shifts')
 
-  
+
 class Worker(Base):
     __tablename__ = 'workers'
 
@@ -68,11 +67,27 @@ class Worker(Base):
 
     shifts = relationship('Shift', secondary='worker_shifts', back_populates='workers')
 
+
+# New Requirement class based on your specification
+class Requirement(Base):
+    __tablename__ = 'requirements'
+
+    id = Column(Integer, primary_key=True)
+    profession = Column(String, nullable=False)
+    day = Column(Integer, nullable=False)  # Day in the week (1-7)
+    start_hour = Column(String, nullable=False)
+    end_hour = Column(String, nullable=False)
+    number_of_employees_required = Column(Integer, nullable=False)
+    
+    table_id = Column(Integer, ForeignKey('tables.id'), nullable=False)  # Link to the Table
+
+
 # Association table for many-to-many relationship between Worker and Shift
 worker_shifts = SQLAlchemyTable('worker_shifts', Base.metadata,
     Column('worker_id', Integer, ForeignKey('workers.id'), primary_key=True),
     Column('shift_id', Integer, ForeignKey('shifts.id'), primary_key=True)
 )
+
 
 def reset_database():
     engine = create_engine('sqlite:///users.db')
