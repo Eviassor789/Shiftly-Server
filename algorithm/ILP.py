@@ -619,17 +619,14 @@ def process_requirements(requirements):
 
     # Convert the result into the desired format
     result = []
-    req_id = 1
     for (profession, day, hour), number in sorted(hourly_requirements.items()):
-        result.append({'id': req_id, 'profession': profession, 'day': day, 'hour': hour, 'number': number})
-        req_id += 1
+        result.append({'profession': profession, 'day': day, 'hour': hour, 'number': number})
 
     return result
 
 
-def get_assignment(shifts, workers, format_requirements, contracts_obj, cost_obj):
-    requirements = process_requirements(format_requirements)
-    # return re(shifts, workers, requirements)
+def get_assignment(shifts, workers, requirements, contracts_obj, cost_obj):
+    # requirements = process_requirements(format_requirements)
 
     # states:
     # 1 : idle-req

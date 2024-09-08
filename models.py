@@ -75,8 +75,7 @@ class Requirement(Base):
     id = Column(Integer, primary_key=True)
     profession = Column(String, nullable=False)
     day = Column(Integer, nullable=False)  # Day in the week (1-7)
-    start_hour = Column(String, nullable=False)
-    end_hour = Column(String, nullable=False)
+    hour = Column(String, nullable=False)
     number_of_employees_required = Column(Integer, nullable=False)
     
     table_id = Column(Integer, ForeignKey('tables.id'), nullable=False)  # Link to the Table

@@ -389,7 +389,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
         idle_workers_weight = 10000
         contracts_weight = 1000000
         requirements_weight = 0
-        cost_weight = 1
+        cost_weight = 1000
 
         if idle_constrain:
             model += (
@@ -419,7 +419,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
     #          ), "Optimize Objectives"
 
     # Solve the model
-    model.solve()
+    model.solve(pulp.PULP_CBC_CMD(msg=False))
 
     # Output the results
     print("Status:", pulp.LpStatus[model.status])
