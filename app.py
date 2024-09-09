@@ -6,6 +6,7 @@ from flask_cors import CORS, cross_origin
 from models import User, Table, Shift, Worker, Requirement
 from algorithm.ILP import get_assignment, json_print, process_requirements, time_to_minutes, minutes_to_time
 from base import Session, create_tables
+from datetime import datetime
 
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
@@ -393,9 +394,10 @@ def add_by_parsed_rows():
         requirements_data = data.get('requirementsData', [])
         shifts_data = data.get('shiftsData', [])
 
+
         # Create a new table
         table_name = data.get('table_name', 'New Table')
-        table_date = data.get('table_date', '2024-01-01')  # Default date
+        table_date = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         new_table = Table(
             name=table_name,
             date=table_date,
