@@ -699,6 +699,49 @@ def update_assignment():
         session.close()
 
 
+# Function to update the table name
+@app.route('/update_table_name/<int:table_id>', methods=['PUT'])
+@jwt_required()
+@cross_origin()
+def update_table_name(table_id):
+    try:
+        current_user = get_jwt_identity()
+        session = Session()
+        
+        # Fetch the current user from the database
+        user = session.query(User).filter_by(username=current_user).first()
+        if not user:
+            session.close()
+            return jsonify(msg="User not found"), 404
+
+        # Fetch the table associated with the table_id and current user
+        table = session.query(Table).filter_by(id=table_id).first()
+        if not table:
+            session.close()
+            return jsonify(msg="Table not found"), 404
+        
+        # Get new table name from the request
+        data = request.json
+        new_name = data.get('name')
+        if not new_name:
+            session.close()
+            return jsonify(msg="New table name is required"), 400
+        
+        if len(new_name) > 50:
+            session.close()
+            return jsonify(msg="Table name is too long"), 400
+
+        # Update the table name
+        table.name = new_name
+        session.commit()
+
+        session.close()
+        return jsonify(msg="Table name updated successfully"), 200
+    
+    except Exception as e:
+        return jsonify(msg=str(e)), 500
+
+
 @app.route('/toggle_star/<int:table_id>', methods=['POST'])
 @jwt_required()
 @cross_origin()
