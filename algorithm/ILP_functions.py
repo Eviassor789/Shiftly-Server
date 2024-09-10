@@ -259,22 +259,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
         assignments[(workers[w]['id'], s['id'])] * (
                 time_to_minutes(s['end_hour']) - time_to_minutes(s['start_hour'])) / 60
         for s in shifts) >= workers[w]['hours_per_week'] for w in workers)
-
-    if idle_constrain:
-        for w in workers:
-            model += pulp.lpSum(
-                assignments[(workers[w]['id'], s['id'])] * (
-                        time_to_minutes(s['end_hour']) - time_to_minutes(s['start_hour'])) / 60
-                for s in shifts
-            ) >= workers[w]['hours_per_week']
-
-    if contracts_constrain:
-        for w in workers:
-            total_worked_hours = sum(
-                assignments[(w, s['id'])] * (time_to_minutes(s['end_hour']) - time_to_minutes(s['start_hour'])) / 60
-                for s in shifts)
-            model += total_worked_hours >= workers[w]['hours_per_week']
-
+    
     shift_to_largest_req = {
         s['id']: max(
             req['number'] for req in requirements if req['profession'] == s['profession'] and req['day'] == s['day'] and
@@ -284,6 +269,32 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
                time_to_minutes(s['start_hour']) <= time_to_minutes(req['hour']) < time_to_minutes(s['end_hour'])
                for req in requirements)
     }
+
+    if idle_constrain:
+        # Idle workers constraint
+        for s in shifts:
+            if s['id'] in shift_to_largest_req:
+                # Find the largest relevant requirement for the shift
+                max_requirement = shift_to_largest_req[s['id']]
+                # Ensure that the number of workers assigned to the shift does not exceed the max requirement
+                model += pulp.lpSum(assignments[(workers[w]['id'], s['id'])] for w in workers) <= max_requirement
+
+    if contracts_constrain:
+        for w in workers:
+            total_worked_hours = sum(
+                assignments[(w, s['id'])] * (time_to_minutes(s['end_hour']) - time_to_minutes(s['start_hour'])) / 60
+                for s in shifts)
+            model += total_worked_hours >= workers[w]['hours_per_week']
+
+    # shift_to_largest_req = {
+    #     s['id']: max(
+    #         req['number'] for req in requirements if req['profession'] == s['profession'] and req['day'] == s['day'] and
+    #         time_to_minutes(s['start_hour']) <= time_to_minutes(req['hour']) < time_to_minutes(s['end_hour']))
+    #     for s in shifts
+    #     if any(req['profession'] == s['profession'] and req['day'] == s['day'] and
+    #            time_to_minutes(s['start_hour']) <= time_to_minutes(req['hour']) < time_to_minutes(s['end_hour'])
+    #            for req in requirements)
+    # }
 
     # Calculate the number of idle workers based on the largest requirement for each shift
     idle_workers_vars = pulp.LpVariable.dicts("idle_workers", ((s['id']) for s in shifts), lowBound=0, cat='Integer')

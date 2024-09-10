@@ -36,7 +36,7 @@ requirements_list = []
 requirement_id = 1
 for profession in professions:
     for day in days:
-        for i in range(10):  # At least 10 requirements per day per profession
+        for i in range(2):  # At least 2 requirements per day per profession
             start_hour = random.choice(hours_range[:-3])
             end_hour = start_hour + random.choice([1, 4])
             number = random.randint(3, 8)  # At least 3 workers needed
