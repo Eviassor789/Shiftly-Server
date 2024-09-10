@@ -304,7 +304,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
         idle_workers_weight = 1000000
         contracts_weight = 10000
         requirements_weight = 100
-        cost_weight = 10
+        cost_weight = 0
 
 
         if contracts_constrain:
@@ -358,7 +358,7 @@ def find_solution(shifts, workers, requirements, idle_constrain, contracts_const
         idle_workers_weight = 10000
         contracts_weight = 1000000
         requirements_weight = 100
-        cost_weight = 10
+        cost_weight = 0
 
         if idle_constrain:
             model += (
