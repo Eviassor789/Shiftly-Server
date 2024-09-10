@@ -6,7 +6,7 @@ from flask_cors import CORS, cross_origin
 from models import User, Table, Shift, Worker, Requirement
 from algorithm.ILP import get_assignment, json_print, process_requirements, time_to_minutes, minutes_to_time
 from base import Session, create_tables
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
@@ -17,6 +17,12 @@ app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = 'your-secret-key'
 app.secret_key = 'your-secret-key'
 jwt = JWTManager(app)
+
+# Extend the JWT access token expiration time (e.g., 8 hours)
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=8)
+
+# Optionally, set refresh token expiration time (e.g., 30 days)
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)
 
 CORS(app, resources={r"/*": {"origins": "*"}})
 
@@ -43,7 +49,6 @@ def create_test_user(username, password, tablesArr, picture="", settings=[False,
     session.close()  # Close session
 
 create_test_user("gon", "ggg", [111, 112, 113])
-create_test_user("killua", "kkk", [], "", [True, False], "#f5f3f6")
 
 def fetch_user_from_db(username):
     session = Session()
@@ -921,7 +926,6 @@ def login_google():
     return jsonify(msg="Logged in with Google", token=access_token), 200
 
 
-
 @app.route('/get_current_user', methods=['GET'])
 @jwt_required()
 @cross_origin()
@@ -966,4 +970,4 @@ def protected():
         
         
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
