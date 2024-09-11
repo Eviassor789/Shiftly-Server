@@ -48,7 +48,8 @@ def create_test_user(username, password, tablesArr, picture="", settings=[False,
         print("Test user already exists")
     session.close()  # Close session
 
-create_test_user("gon", "ggg", [111, 112, 113])
+# create_test_user("gon", "ggg", [111, 112, 113])
+create_test_user("David", "dddddddd", [111, 112, 113])
 
 def fetch_user_from_db(username):
     session = Session()

@@ -3,7 +3,7 @@ import pandas as pd
 
 # Constants
 days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-professions = ["Doctor", "Teacher", "Nurse", "Engineer"]
+professions = ["Cashier", "Stock Clerk", "Customer Service"]
 hours_range = list(range(7, 21))  # 07:00 to 20:00
 num_workers = 20
 day_to_number = {day: i + 1 for i, day in enumerate(days)}
@@ -36,7 +36,7 @@ requirements_list = []
 requirement_id = 1
 for profession in professions:
     for day in days:
-        for i in range(2):  # At least 2 requirements per day per profession
+        for i in range(1):  # At least 2 requirements per day per profession
             start_hour = random.choice(hours_range[:-3])
             end_hour = start_hour + random.choice([1, 4])
             number = random.randint(3, 8)  # At least 3 workers needed
@@ -55,7 +55,7 @@ workers_map = {}
 for i in range(num_workers):
     worker_id = i
     name = f"Worker_{chr(ord('A') + worker_id)}"
-    professions_sample = random.sample(professions, k=random.randint(2, 4))
+    professions_sample = random.sample(professions, k=random.randint(2, 3))
     days_sample = random.sample(days, k=random.randint(4, 6))
     hours_per_week = random.randint(5, 20)
 
